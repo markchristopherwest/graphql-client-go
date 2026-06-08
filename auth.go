@@ -1,114 +1,123 @@
 package graphql
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
 )
 
-// Sign up - Create new user, return user token upon successful creation
+// SignUp - Create a new user, returning the user token on success.
 func (c *Client) SignUp(auth AuthStruct) (*AuthResponse, error) {
 	if auth.Username == "" || auth.Password == "" {
 		return nil, fmt.Errorf("define username and password")
 	}
-	rb, err := json.Marshal(auth)
-	if err != nil {
+
+	const query = `
+		mutation ($username: String!, $password: String!) {
+			signUp(username: $username, password: $password) {
+				token
+				# Add any other fields you expect to map to AuthResponse here.
+			}
+		}
+	`
+
+	vars := map[string]any{
+		"username": auth.Username,
+		"password": auth.Password,
+	}
+
+	var res struct {
+		SignUp AuthResponse `json:"signUp"`
+	}
+
+	if err := c.doGraphQL(query, vars, nil, &res); err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/signup", c.HostURL), strings.NewReader(string(rb)))
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.doRequest(req, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	ar := AuthResponse{}
-	err = json.Unmarshal(body, &ar)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ar, nil
+	return &res.SignUp, nil
 }
 
-// SignIn - Get a new token for user
+// SignIn - Get a new token for the user using the client's stored credentials.
 func (c *Client) SignIn() (*AuthResponse, error) {
 	if c.Auth.Username == "" || c.Auth.Password == "" {
 		return nil, fmt.Errorf("define username and password")
 	}
-	rb, err := json.Marshal(c.Auth)
-	if err != nil {
+
+	const query = `
+		mutation ($username: String!, $password: String!) {
+			signIn(username: $username, password: $password) {
+				token
+			}
+		}
+	`
+
+	vars := map[string]any{
+		"username": c.Auth.Username,
+		"password": c.Auth.Password,
+	}
+
+	var res struct {
+		SignIn AuthResponse `json:"signIn"`
+	}
+
+	if err := c.doGraphQL(query, vars, nil, &res); err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/signin", c.HostURL), strings.NewReader(string(rb)))
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.doRequest(req, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	ar := AuthResponse{}
-	err = json.Unmarshal(body, &ar)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ar, nil
+	return &res.SignIn, nil
 }
 
-// SignIn - Get a new token for user
+// GetUserTokenSignIn - Get a new token using the provided credentials.
 func (c *Client) GetUserTokenSignIn(auth AuthStruct) (*AuthResponse, error) {
 	if auth.Username == "" || auth.Password == "" {
 		return nil, fmt.Errorf("define username and password")
 	}
-	rb, err := json.Marshal(auth)
-	if err != nil {
-		return nil, err
+
+	const query = `
+		mutation ($username: String!, $password: String!) {
+			signIn(username: $username, password: $password) {
+				token
+			}
+		}
+	`
+
+	vars := map[string]any{
+		"username": auth.Username,
+		"password": auth.Password,
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/signin", c.HostURL), strings.NewReader(string(rb)))
-	if err != nil {
-		return nil, err
+	var res struct {
+		SignIn AuthResponse `json:"signIn"`
 	}
 
-	body, err := c.doRequest(req, nil)
-	if err != nil {
-		return nil, errors.New("Unable to login")
+	if err := c.doGraphQL(query, vars, nil, &res); err != nil {
+		// Preserving the original error semantics for this method.
+		return nil, errors.New("unable to login")
 	}
 
-	ar := AuthResponse{}
-	err = json.Unmarshal(body, &ar)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ar, nil
+	return &res.SignIn, nil
 }
 
-// SignOut - Revoke the token for a user
+// SignOut - Revoke the token for a user.
+//
+// authToken overrides the client's stored token when non-nil.
 func (c *Client) SignOut(authToken *string) error {
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/signout", c.HostURL), strings.NewReader(string("")))
-	if err != nil {
+	const query = `
+		mutation {
+			signOut
+		}
+	`
+
+	var res struct {
+		SignOut string `json:"signOut"`
+	}
+
+	if err := c.doGraphQL(query, nil, authToken, &res); err != nil {
 		return err
 	}
 
-	body, err := c.doRequest(req, authToken)
-	if err != nil {
-		return err
-	}
-
-	if string(body) != "Signed out user" {
-		return errors.New(string(body))
+	// Preserving the original string validation.
+	if res.SignOut != "Signed out user" {
+		return errors.New(res.SignOut)
 	}
 
 	return nil
