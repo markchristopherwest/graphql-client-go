@@ -1,43 +1,67 @@
 package graphql
 
-// Order -
-type Order struct {
-	ID    int         `json:"id,omitempty"`
-	Items []OrderItem `json:"items,omitempty"`
+// AuthStruct carries the credentials handed to NewClient / SignIn.
+// Field names match the server's SignInInput.
+type AuthStruct struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
-// OrderItem -
-type OrderItem struct {
-	Coffee   Coffee `json:"coffee"`
-	Quantity int    `json:"quantity"`
+// AuthPayload mirrors the server's AuthPayload type (signIn /
+// loginServiceAccount return it).
+type AuthPayload struct {
+	Token string `json:"token"`
 }
 
-// Coffee -
-type Coffee struct {
-	ID          int                `json:"id"`
-	Name        string             `json:"name"`
-	Teaser      string             `json:"teaser"`
-	Collection  string             `json:"collection"`
-	Origin      string             `json:"origin"`
-	Color       string             `json:"color"`
-	Description string             `json:"description"`
-	Price       float64            `json:"price"`
-	Image       string             `json:"image"`
-	Ingredient  []CoffeeIngredient `json:"ingredients"`
+// AuthResponse is the enriched result of a sign-in: the JWT from
+// AuthPayload plus the principal identity resolved via the `me` query.
+// NOTE: graphql-server-go uses string IDs ("usr_...", "sa_...").
+type AuthResponse struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	Token    string `json:"token"`
 }
 
-// Ingredient -
-type CoffeeIngredient struct {
-	ID       int    `json:"ingredient_id"`
+// User mirrors the server's User object type.
+type User struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
+// ServiceAccount mirrors the server's ServiceAccount object type.
+type ServiceAccount struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// Identity is the decoded form of the server's Identity union
+// (User | ServiceAccount), as returned by the `me` query. Typename
+// distinguishes which arm populated the struct.
+type Identity struct {
+	Typename string `json:"__typename"`
+	ID       string `json:"id"`
+	Username string `json:"username,omitempty"` // User
+	Email    string `json:"email,omitempty"`    // User
+	Name     string `json:"name,omitempty"`     // ServiceAccount
+}
+
+// CreateUserInput mirrors the server's CreateUserInput.
+type CreateUserInput struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email,omitempty"`
+}
+
+// UpdateUserInput mirrors the server's UpdateUserInput. Empty fields
+// are omitted so the server only touches what the caller sets.
+type UpdateUserInput struct {
+	Email    string `json:"email,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+// CreateServiceAccountInput mirrors the server's CreateServiceAccountInput.
+type CreateServiceAccountInput struct {
 	Name     string `json:"name"`
-	Quantity int    `json:"quantity"`
-	Unit     string `json:"unit"`
-}
-
-// Ingredient -
-type Ingredient struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Quantity int    `json:"quantity"`
-	Unit     string `json:"unit"`
+	Password string `json:"password"`
 }
